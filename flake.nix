@@ -75,16 +75,22 @@
       {pkgs}: {
         default = let
           naersk-lib = pkgs.callPackage inputs.naersk {};
+          sdk = pkgs.runCommand "obsbot-sdk" { src = ./sdk; } ''
+            mkdir -p $out
+            cp -r $src/* $out/
+          '';
         in
           naersk-lib.buildPackage {
             src = ./.;
-            nativeBuildInputs = with pkgs; [pkg-config clang];
+            nativeBuildInputs = with pkgs; [pkg-config];
             buildInputs = with pkgs; [openssl llvmPackages.libclang];
             LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+            OBSBOT_SDK_PATH = "${sdk}";
+            LD_LIBRARY_PATH = "${sdk}/lib";
 
             postInstall = ''
               mkdir -p $out/lib
-              cp sdk/lib/libdev.so $out/lib/
+              cp ${sdk}/lib/libdev.so $out/lib/
               # Add $out/lib and libstdc++ to RPATH
               patchelf --add-rpath $out/lib:${pkgs.stdenv.cc.cc.lib}/lib $out/bin/obsbot-cli
             '';

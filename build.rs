@@ -9,17 +9,25 @@ fn main() {
     // The library is in sdk/lib/
     // We need to tell rustc where to find it.
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-    println!("cargo:rustc-link-search=native={}/sdk/lib", manifest_dir);
+    let sdk_path =
+        std::env::var("OBSBOT_SDK_PATH").unwrap_or_else(|_| format!("{}/sdk", manifest_dir));
+    let lib_path = format!("{}/lib", sdk_path);
+
+    println!("cargo:warning=SDK Path: {}", sdk_path);
+    println!("cargo:warning=Lib Path: {}", lib_path);
+
+    println!("cargo:rustc-link-search=native={}", lib_path);
+    println!("cargo:rustc-link-arg=-Wl,--no-as-needed");
     println!("cargo:rustc-link-lib=dylib=dev");
 
     // Add rpath so the binary can find the .so at runtime without LD_LIBRARY_PATH
-    println!("cargo:rustc-link-arg=-Wl,-rpath,{}/sdk/lib", manifest_dir);
+    println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib_path);
 
     // Build the wrapper
     cc::Build::new()
         .cpp(true)
         .file("wrapper/obsbot_wrapper.cpp")
-        .include("sdk/include")
+        .include(format!("{}/include", sdk_path))
         .compile("obsbot_wrapper");
 
     // Generate bindings

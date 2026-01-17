@@ -5,7 +5,6 @@
 #include <vector>
 #include <iostream>
 
-// Helper to copy std::string to C buffer
 int copy_string(const std::string& src, char* buffer, int max_len) {
     if (!buffer || max_len <= 0) return -1;
     strncpy(buffer, src.c_str(), max_len - 1);
@@ -64,17 +63,12 @@ bool obsbot_dev_is_inited(ObsbotDeviceCtx dev) {
 
 bool obsbot_dev_is_connected(ObsbotDeviceCtx dev) {
      Device* device = static_cast<Device*>(dev);
-     // Checking connection state usually involves checking if it's still in the device list or responding.
-     // For now, we assume if we have a handle it might be valid, but isInited is a decent proxy for "ready".
      return device->isInited();
 }
-
-// MEET SE Specifics
 
 int obsbot_meet_get_media_mode(ObsbotDeviceCtx dev) {
     Device* device = static_cast<Device*>(dev);
     Device::CameraStatus status = device->cameraStatus();
-    // Assuming Meet structure is active for Meet SE
     return (int)status.meet.media_mode;
 }
 
@@ -86,18 +80,14 @@ void obsbot_meet_set_media_mode(ObsbotDeviceCtx dev, int mode) {
 int obsbot_meet_get_auto_framing_type(ObsbotDeviceCtx dev) {
     Device* device = static_cast<Device*>(dev);
     Device::CameraStatus status = device->cameraStatus();
-    // Return group_single value (0: Group, 1: Single)
     return (int)status.meet.group_single;
 }
 
 void obsbot_meet_set_auto_framing_type(ObsbotDeviceCtx dev, int type) {
     Device* device = static_cast<Device*>(dev);
-    // If type is 0 (Group), we set AutoFrmGroup.
-    // If type is 1 (Single), we set AutoFrmSingle.
-    // We ignore the second parameter (close_upper) for this simple wrapper or default it.
     device->cameraSetAutoFramingModeU(
         static_cast<Device::AutoFramingType>(type), 
-        Device::AutoFrmCloseUp // Default
+        Device::AutoFrmCloseUp 
     );
 }
 
@@ -110,6 +100,68 @@ int obsbot_meet_get_hdr(ObsbotDeviceCtx dev) {
 void obsbot_meet_set_hdr(ObsbotDeviceCtx dev, int enable) {
     Device* device = static_cast<Device*>(dev);
     // dev.hpp says cameraSetWdrR is for meet series.
-    // DevWdrModeNone = 0, DevWdrModeDol2TO1 = 1 (HDR enabled)
-    device->cameraSetWdrR(enable ? Device::DevWdrModeDol2TO1 : Device::DevWdrModeNone);
+    // However, libdev.so does NOT contain this symbol. 
+    // Commenting out to fix link error.
+    // device->cameraSetWdrR(enable ? Device::DevWdrModeDol2TO1 : Device::DevWdrModeNone);
+    printf("Warning: cameraSetWdrR symbol missing in SDK lib. HDR setting ignored.\n");
 }
+
+// Image Controls
+void obsbot_image_set_brightness(ObsbotDeviceCtx dev, int val) {
+    static_cast<Device*>(dev)->cameraSetImageBrightnessR(val);
+}
+
+void obsbot_image_set_contrast(ObsbotDeviceCtx dev, int val) {
+    static_cast<Device*>(dev)->cameraSetImageContrastR(val);
+}
+
+void obsbot_image_set_saturation(ObsbotDeviceCtx dev, int val) {
+    static_cast<Device*>(dev)->cameraSetImageSaturationR(val);
+}
+
+void obsbot_image_set_hue(ObsbotDeviceCtx dev, int val) {
+    static_cast<Device*>(dev)->cameraSetImageHueR(val);
+}
+
+void obsbot_image_set_sharpness(ObsbotDeviceCtx dev, int val) {
+    static_cast<Device*>(dev)->cameraSetImageSharpR(val);
+}
+
+void obsbot_image_set_white_balance(ObsbotDeviceCtx dev, int auto_, int temp) {
+    if (auto_) {
+        static_cast<Device*>(dev)->cameraSetWhiteBalanceR(Device::DevWhiteBalanceAuto, 0);
+    } else {
+        static_cast<Device*>(dev)->cameraSetWhiteBalanceR(Device::DevWhiteBalanceManual, temp);
+    }
+}
+
+void obsbot_camera_set_zoom(ObsbotDeviceCtx dev, float zoom) {
+    static_cast<Device*>(dev)->cameraSetZoomAbsoluteR(zoom);
+}
+
+void obsbot_camera_set_focus(ObsbotDeviceCtx dev, int auto_, int val) {
+    Device* device = static_cast<Device*>(dev);
+    if (auto_) {
+        device->cameraSetAutoFocusModeR(Device::DevAutoFocusAFC);
+    } else {
+        device->cameraSetFocusAbsolute(val, false);
+    }
+}
+
+void obsbot_camera_set_anti_flicker(ObsbotDeviceCtx dev, int val) {
+    // 0=Off, 1=50, 2=60, 3=Auto
+    static_cast<Device*>(dev)->cameraSetAntiFlickR(val);
+}
+
+void obsbot_camera_set_background_blur(ObsbotDeviceCtx dev, int level) {
+    // Requires MediaMode to be Background and BgMode to be Blur?
+    // SDK says: "MediaMode should be set to MediaModeBackground... and MediaBgMode should be set to MediaBgModeBlur"
+    // For now we just call setMaskLevelU. User might need to set mode separately.
+    static_cast<Device*>(dev)->cameraSetMaskLevelU(level);
+}
+
+void obsbot_camera_reset_default(ObsbotDeviceCtx dev) {
+    static_cast<Device*>(dev)->cameraSetRestoreFactorySettingsR();
+}
+
+
